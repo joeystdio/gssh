@@ -22,7 +22,7 @@ export async function checkAndOfferImport(paths: Paths): Promise<void> {
     return;
   }
 
-  // Check if any of the existing keys are unmanaged
+  // Check and import all unmanaged keys
   for (const key of existingKeys) {
     const isManaged = await isKeyManaged(paths, key.pubPath);
 
@@ -35,8 +35,6 @@ export async function checkAndOfferImport(paths: Paths): Promise<void> {
           console.error(chalk.red(`Failed to import key: ${error.message}`));
         }
       }
-      // Only import one key at a time for simplicity
-      break;
     }
   }
 }
