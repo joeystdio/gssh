@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import { join, basename } from 'path';
-import { readFile, mkdir, writeFile, copyFile } from 'fs/promises';
+import { readFile, mkdir, writeFile, copyFile, unlink } from 'fs/promises';
 import type { Paths } from '../paths.js';
 import type { ExistingKey } from '../types.js';
 import { GsshError } from '../utils/errors.js';
@@ -185,6 +185,28 @@ async function importExistingKey(
   if (markActive) {
     await writeFile(paths.activeFile, profileName);
     console.log(chalk.green('Profile marked as active.'));
+  }
+
+  // Clean up the original keys from ~/.ssh/
+  const keyBasenameClean = basename(key.privPath);
+  const shouldCleanup = keyBasenameClean !== normalizedKeyName;
+
+  if (shouldCleanup) {
+    try {
+      await unlink(key.privPath);
+      console.log(chalk.dim(`Removed original key: ${keyBasenameClean}`));
+
+      if (await exists(key.pubPath)) {
+        await unlink(key.pubPath);
+        console.log(chalk.dim(`Removed original public key: ${keyBasenameClean}.pub`));
+      }
+    } catch (error) {
+      console.log(
+        chalk.yellow(
+          `Warning: Could not remove original key files. You may want to delete them manually.`
+        )
+      );
+    }
   }
 }
 
