@@ -32,9 +32,12 @@ export class KeyPair implements KeyPairData {
     const targetPriv = join(sshDir, this.basename);
     const targetPub = targetPriv + '.pub';
 
-    // Remove existing files (ignore errors)
-    await unlink(targetPriv).catch(() => {});
-    await unlink(targetPub).catch(() => {});
+    // Remove all managed key types to avoid conflicts (ignore errors)
+    const keyTypes = ['id_ed25519', 'id_rsa', 'id_ecdsa'];
+    for (const keyType of keyTypes) {
+      await unlink(join(sshDir, keyType)).catch(() => {});
+      await unlink(join(sshDir, `${keyType}.pub`)).catch(() => {});
+    }
 
     // Copy private key
     await copyFile(this.privPath, targetPriv);

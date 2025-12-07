@@ -23,7 +23,7 @@ npm run build
 npm link
 ```
 
-### From npm (when published)
+### From npm
 
 ```bash
 npm install -g gssh
