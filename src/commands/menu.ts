@@ -1,8 +1,6 @@
 import chalk from 'chalk';
 import { Paths } from '../paths.js';
-import { getActiveProfileName } from './shared.js';
 import { currentCommand } from './current.js';
-import { pubkeyCommand } from './pubkey.js';
 import { checkAndOfferImport } from './import.js';
 
 export async function showMenuCommand(): Promise<void> {
@@ -42,15 +40,4 @@ export async function showMenuCommand(): Promise<void> {
   console.log();
 
   await currentCommand();
-
-  // Also show pubkey if there's an active profile
-  const activeName = await getActiveProfileName(paths);
-  if (activeName) {
-    console.log();
-    try {
-      await pubkeyCommand();
-    } catch {
-      // Ignore errors showing pubkey
-    }
-  }
 }
