@@ -43,24 +43,39 @@ export async function checkAndOfferImport(paths: Paths): Promise<void> {
 
 async function detectExistingKeys(paths: Paths): Promise<ExistingKey[]> {
   const existingKeys: ExistingKey[] = [];
+  const { readdir } = await import('fs/promises');
 
-  // Check for common key types
-  const keyTypes = [
-    { name: 'id_ed25519', type: 'ed25519' },
-    { name: 'id_rsa', type: 'rsa' },
-    { name: 'id_ecdsa', type: 'ecdsa' }
+  // Read all files in the SSH directory
+  const files = await readdir(paths.sshDir);
+
+  // Pattern to match SSH private key files
+  const keyPatterns = [
+    { regex: /^id_ed25519(_.*)?$/, type: 'ed25519' },
+    { regex: /^id_rsa(_.*)?$/, type: 'rsa' },
+    { regex: /^id_ecdsa(_.*)?$/, type: 'ecdsa' }
   ];
 
-  for (const { name, type } of keyTypes) {
-    const privPath = join(paths.sshDir, name);
-    const pubPath = join(paths.sshDir, `${name}.pub`);
+  for (const file of files) {
+    // Skip public keys and other files
+    if (file.endsWith('.pub') || file.endsWith('.old') || file.endsWith('.bak')) {
+      continue;
+    }
 
-    if (await exists(privPath)) {
-      existingKeys.push({
-        keyType: type,
-        privPath,
-        pubPath
-      });
+    for (const { regex, type } of keyPatterns) {
+      if (regex.test(file)) {
+        const privPath = join(paths.sshDir, file);
+        const pubPath = join(paths.sshDir, `${file}.pub`);
+
+        // Only include if it's actually a file (not a directory)
+        if (await exists(privPath)) {
+          existingKeys.push({
+            keyType: type,
+            privPath,
+            pubPath
+          });
+        }
+        break;
+      }
     }
   }
 
@@ -116,7 +131,14 @@ async function importExistingKey(
     return;
   }
 
-  const profileName = await prompt('Enter profile name for this key: ');
+  // Extract suggested profile name from key filename
+  const keyBasename = basename(key.privPath);
+  const suggestedProfileName = extractProfileNameFromKey(keyBasename);
+
+  const profileName = await prompt(
+    `Enter profile name for this key${suggestedProfileName ? ` [${suggestedProfileName}]` : ''}: `,
+    suggestedProfileName
+  );
 
   if (!profileName) {
     throw new GsshError('Profile name cannot be empty');
@@ -142,9 +164,9 @@ async function importExistingKey(
   const authorContent = `${name} <${email}>`;
   await writeFile(join(profilePath, 'git_author.txt'), authorContent);
 
-  // Copy keys to profile
-  const keyBasename = basename(key.privPath);
-  const destPriv = join(profilePath, keyBasename);
+  // Normalize key name to standard format (id_ed25519, id_rsa, or id_ecdsa)
+  const normalizedKeyName = normalizeKeyName(keyBasename);
+  const destPriv = join(profilePath, normalizedKeyName);
   const destPub = destPriv + '.pub';
 
   await copyFile(key.privPath, destPriv);
@@ -166,4 +188,33 @@ async function importExistingKey(
     await writeFile(paths.activeFile, profileName);
     console.log(chalk.green('Profile marked as active.'));
   }
+}
+
+function extractProfileNameFromKey(keyName: string): string {
+  // Extract suffix from key names like "id_ed25519_work" -> "work"
+  const match = keyName.match(/^id_(ed25519|rsa|ecdsa)_(.+)$/);
+  if (match && match[2]) {
+    return match[2];
+  }
+  // For keys without suffix (e.g., "id_ed25519"), suggest "default"
+  if (/^id_(ed25519|rsa|ecdsa)$/.test(keyName)) {
+    return 'default';
+  }
+  return '';
+}
+
+function normalizeKeyName(keyName: string): string {
+  // Normalize "id_ed25519_work" -> "id_ed25519"
+  // Normalize "id_rsa_personal" -> "id_rsa"
+  // etc.
+  if (keyName.startsWith('id_ed25519')) {
+    return 'id_ed25519';
+  }
+  if (keyName.startsWith('id_rsa')) {
+    return 'id_rsa';
+  }
+  if (keyName.startsWith('id_ecdsa')) {
+    return 'id_ecdsa';
+  }
+  return keyName; // Fallback to original name if no match
 }

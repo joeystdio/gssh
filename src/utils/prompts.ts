@@ -1,6 +1,6 @@
 import { createInterface } from 'readline';
 
-export async function prompt(question: string): Promise<string> {
+export async function prompt(question: string, defaultValue = ''): Promise<string> {
   const rl = createInterface({
     input: process.stdin,
     output: process.stdout
@@ -9,7 +9,8 @@ export async function prompt(question: string): Promise<string> {
   return new Promise((resolve) => {
     rl.question(question, (answer) => {
       rl.close();
-      resolve(answer.trim());
+      const trimmed = answer.trim();
+      resolve(trimmed || defaultValue);
     });
   });
 }

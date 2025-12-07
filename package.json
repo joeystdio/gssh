@@ -1,6 +1,6 @@
 {
   "name": "gssh",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "SSH + Git author profile manager",
   "type": "module",
   "bin": {
